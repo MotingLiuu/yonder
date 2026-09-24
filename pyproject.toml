@@ -1,0 +1,10 @@
+[project]
+name = "yonder"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "jamdict>=0.1a11.post2",
+    "jamdict-data>=1.5",
+    "sudachidict-core>=20260723.1",
+    "sudachipy>=0.7.0",
+]
