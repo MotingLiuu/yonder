@@ -23,6 +23,25 @@ local function get_visual_selection()
     -- vim.fn.getreg() means get the content of register z
 end
 
+local function get_cursor_context()
+	local pos = vim.api.nvim_win_get_cursor(0)
+    -- get the cursor position of the current window(0)
+    -- pos {row_num, col_num}
+
+	return {
+		line = vim.api.nvim_get_current_line(),
+        -- get the string of the current line
+		col = pos[2], -- 0-based BYTE offset
+	}
+end
+
+function M.lookup_cursor()
+    -- Question: what does M mean? what is the relationship of local M and M used in here?
+	local ctx = get_cursor_context()
+
+	lookup_cursor(ctx.line, ctx.col, show_result)
+end
+
 local function backend_path()
 	local paths =
 		vim.api.nvim_get_runtime_file(
@@ -187,6 +206,12 @@ function M.setup(opts)
 	end, {
 		desc = "Japanese dictionary lookup",
 	})
+
+    vim.keymap.set("n", "<leader>jd", function()
+        require("yonder").lookup_cursor()
+    end, {
+        desc = "Japanese dictionary lookup",
+    })
 end
 
 return M
