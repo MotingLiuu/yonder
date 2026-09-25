@@ -92,7 +92,7 @@ local function lookup(text, callback)
 
 				if not ok then
 					vim.notify(
-						"jpdict: invalid JSON",
+						"yonder: invalid JSON",
 						vim.log.levels.ERROR
 					)
 					return
