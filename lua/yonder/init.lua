@@ -41,6 +41,8 @@ local function backend_path()
     -- paths[1] is the first path, lua starts from index 1 not 0
 end
 
+-- 1.call python backend to parse the text and return the result
+-- 2.callback(show_result) to open a new floating window to show the result
 local function lookup(text, callback)
 	local script = backend_path()
 
