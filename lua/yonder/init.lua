@@ -16,9 +16,161 @@ local function get_visual_selection()
 	vim.cmd('normal! "zy')
     -- vim.cmd() means execute vimscript command
     -- Question: what is zy? what is register z?
+    -- in vim this is an unnamed register, y copy and d cut, the content is stored in this register 
+    -- vim provides 26 registers a-z, z is the 26th register
 
 	return vim.fn.getreg("z")
     -- vim.fn.getreg() means get the content of register z
+end
+
+local function backend_path()
+	local paths =
+		vim.api.nvim_get_runtime_file(
+            -- Question: what does runtimepath contain?
+            -- jsut like $PATH 
+            -- it contains User config folder ~/.config/nvim
+            -- root folder of the plugins installed
+            -- neovim's runtime pakcage path
+			"python/yonder_backend.py",
+			false
+		)
+
+	return paths[1]
+    -- Question: what does paths contain? why return paths[1]?
+    -- paths contains all of the path
+    -- paths[1] is the first path, lua starts from index 1 not 0
+end
+
+local function lookup(text, callback)
+	local script = backend_path()
+
+	if not script then
+		vim.notify(
+			"yonder: backend not found",
+			vim.log.levels.ERROR
+		)
+		return
+	end
+
+	vim.system(
+        -- background job vim.system({cmd, ...}, opts, on_exit)
+        -- loading a python script comsumes 0.1-0.5s
+		{
+			M.config.python,
+			script,
+			text,
+		},
+        -- thie equals to python3 /path/to/yonder_backend.py "text"
+		{
+			text = true,
+		},
+        -- transform the result from Raw Bytes to a String
+		function(result)
+            -- when Python exits, the table including the result is passed to this function
+            -- result.code exit code
+            -- result.stdout stdout writted by Python
+            -- result.stderr stderr writted by Python(Traceback)
+			vim.schedule(function()
+				if result.code ~= 0 then
+                    -- result.code is not 0, it means Python exited with error
+					vim.notify(
+						result.stderr,
+						vim.log.levels.ERROR
+					)
+					return
+				end
+
+				local ok, data =
+                -- lua's pcall is similar to Python's try...catch
+                -- if success, ok is true, else ok is false
+					pcall(
+						vim.json.decode,
+						result.stdout
+					)
+
+				if not ok then
+					vim.notify(
+						"jpdict: invalid JSON",
+						vim.log.levels.ERROR
+					)
+					return
+				end
+
+				callback(data)
+                -- Question: what does callback(data) do exactly?
+                -- show_reusult is a pointer to show_result()
+			end)
+		end
+	)
+end
+
+local function show_result(data)
+	local lines = {}
+
+	table.insert(
+		lines,
+		"# " .. (data.query or "")
+	)
+
+	table.insert(lines, "")
+
+	if data.term then
+		table.insert(
+			lines,
+			"**辞書形:** " .. data.term
+		)
+
+		table.insert(
+			lines,
+			"**読み:** " .. (data.reading or "")
+		)
+	end
+
+	if data.tokens and #data.tokens > 0 then
+		table.insert(lines, "")
+		table.insert(lines, "## 形態素解析")
+
+		for _, token in ipairs(data.tokens) do
+			table.insert(
+				lines,
+				string.format(
+					"- `%s` → **%s** (%s)",
+					token.surface,
+					token.dictionary_form,
+					token.reading
+				)
+			)
+		end
+	end
+
+	if data.entries and #data.entries > 0 then
+		table.insert(lines, "")
+		table.insert(lines, "## Dictionary")
+
+		for i, entry in ipairs(data.entries) do
+			table.insert(
+				lines,
+				string.format(
+					"%d. %s",
+					i,
+					entry
+				)
+			)
+		end
+	else
+		table.insert(lines, "")
+		table.insert(lines, "_No entry found_")
+	end
+
+	vim.lsp.util.open_floating_preview(
+		lines,
+		"markdown",
+		{
+			border = "rounded",
+			max_width = 80,
+			max_height = 30,
+		}
+	)
 end
 
 -- 
@@ -29,7 +181,7 @@ function M.setup(opts)
 	vim.keymap.set("x", "<leader>jd", function()
         -- "x" means the mode is visual mode
 		local text = get_visual_selection()
-		print("selected:", text)
+        lookup(text, show_result)
 	end, {
 		desc = "Japanese dictionary lookup",
 	})
