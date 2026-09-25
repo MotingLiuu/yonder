@@ -28,6 +28,18 @@ def katakana_to_hiragana(text: str) -> str:
     return "".join(result)
 
 
+# parse a str into morphemes using tokenizer in SplitMode.C
+# lookup the first morpheme with dict
+
+# return {
+#     "query": text,
+#     "term": term,
+#     "reading": reading,
+#     "tokens": tokens,
+#     "entries": entries,
+# }
+
+
 def analyse(text: str) -> dict:
     morphemes = tokenizer_obj.tokenize(
         text,
