@@ -28,6 +28,80 @@ def katakana_to_hiragana(text: str) -> str:
     return "".join(result)
 
 
+# Summary: find the morpheme pointed by cursor
+
+# Return:  the morpheme pointed by cursor
+def morpheme_at_cursor(text: str, cursor_byte: int):
+    morphemes = tokenizer_obj.tokenize(
+        text,
+        tokenizer.Tokenizer.SplitMode.C,
+    )
+
+    byte_offset = 0
+
+    for m in morphemes:
+        surface = m.surface()
+
+        start = byte_offset
+        end = start + len(surface.encode("utf-8"))
+
+        if start <= cursor_byte < end:
+            return m
+
+        byte_offset = end
+
+    return None
+
+
+# Summary: 
+# 1. find morpheme pointed by cursor by calling morpheme_at_cursor()
+# 2. lookup the term in jamdict
+
+# Return:
+#    return {
+#        "query": surface,
+#        "term": term,
+#        "reading": reading,
+#        "pos": list(target.part_of_speech()),
+#        "entries": [
+#            str(entry)
+#            for entry in result.entries[:5]
+#        ],
+#        "sentence": text,
+#    }
+
+
+def analyse_at_cursor(text: str, cursor_byte: int) -> dict:
+    target = morpheme_at_cursor(text, cursor_byte)
+
+    if target is None:
+        return {
+            "query": None,
+            "term": None,
+            "entries": [],
+            "error": "No morpheme under cursor",
+        }
+
+    surface = target.surface()
+    term = target.dictionary_form()
+    reading = katakana_to_hiragana(
+        target.reading_form()
+    )
+
+    result = jam.lookup(term)
+
+    return {
+        "query": surface,
+        "term": term,
+        "reading": reading,
+        "pos": list(target.part_of_speech()),
+        "entries": [
+            str(entry)
+            for entry in result.entries[:5]
+        ],
+        "sentence": text,
+    }
+
 # parse a str into morphemes using tokenizer in SplitMode.C
 # lookup the first morpheme with dict
 
@@ -118,18 +192,24 @@ def analyse(text: str) -> dict:
 
 
 def main() -> None:
-    if len(sys.argv) < 2:
-        print(
-            json.dumps(
-                {"error": "missing query"},
-                ensure_ascii=False,
-            )
+    command = sys.argv[1]
+
+    if command == "lookup":
+        result = analyse(sys.argv[2])
+
+    elif command == "cursor":
+        text = sys.argv[2]
+        cursor_byte = int(sys.argv[3])
+
+        result = analyse_at_cursor(
+            text,
+            cursor_byte,
         )
-        return
 
-    text = sys.argv[1]
-
-    result = analyse(text)
+    else:
+        result = {
+            "error": f"unknown command: {command}"
+        }
 
     print(
         json.dumps(
